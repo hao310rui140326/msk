@@ -34,11 +34,15 @@ for ii =1:length(rxSig)-L+1
     papr = peak/aver;
     papr_all(ii) = papr ;
 end
-Numerator = ones(192,1)/192 ;
+L= 192 ;
+Numerator = ones(L,1)/L ;
 dd = filter(Numerator,1,papr_all) ;
-
-[max_papr location] = max(dd) ;
-location = location-96;
+[pks,locs] = findpeaks(dd,'MinPeakDistance',320);
+location = locs(find(pks>2));     
+max_papr = pks(find(pks>2));
+%[max_papr location] = max(dd) ;
+% find peak with value > 10
+location = location-L/2;
 fprintf('location is: %d\n',location);
 fprintf('papr is: %d\n',10*log(max_papr));
 

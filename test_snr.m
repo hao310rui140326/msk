@@ -2,15 +2,15 @@ clear all;
 close all;
 clc;
 
-FLAG_ADD_TIME   = 1 ; 
-FLAG_ADD_FREQ   = 0 ;
+FLAG_ADD_TIME   = 0 ; 
+FLAG_ADD_FREQ   = 1 ;
 FLAG_ADD_NOISE  = 1 ; 
 flag_shift = 0  ;
 
 
 shift = 0; 
-EbN0 = [20]  ;%4:0.2:12;
-freqOffset = 20e3;% 20e3 ; % 10e3;
+EbN0 = [28:-1:5]  ;%4:0.2:12;
+freqOffset = 400e3;% 20e3 ; % 10e3;
 ppm = 400e-6;%400e-6;%-400e-6; % residual ppm should not be too much
 
 flag_plot = 0 ;
@@ -45,14 +45,16 @@ Ts = 1.0/fs ;
     sum_err_num = zeros(length(EbN0),1) ;
     total_bits = zeros(length(EbN0),1) ;
     err_rate = zeros(length(EbN0),1) ;
-    Lall = [800:100:1600]*12;   %% about 20 us*16M = 1600points
-for iter = 1:100
+    Lall = [800]*12;   %% about 20 us*16M = 1600points
+    Lpre = 200;
+for iter = 1:1
 for ll = 1:length(Lall)
     L = Lall(ll) ;
 for kk = 1:1%length(ppm)
 for ii = 1:length(EbN0)
 for jj = 1:1 %1e6 % frame iteration
     snr = EbN0(ii) ;
+    fprintf('current snr is %f\n',snr);
     chAWGN = comm.AWGNChannel(...
     'NoiseMethod','Signal to noise ratio (Eb/No)', ...
     'EbNo',snr,...
@@ -60,18 +62,20 @@ for jj = 1:1 %1e6 % frame iteration
     'SamplesPerSymbol',samplesPerSymbol);
     hLen = 5000 ;
     %zerobits = zeros(1,1000) ;
-    headBits = randi([0 1],1,3);
+    headBits = randi([0 1],1,0);
     tailBits = randi([0 1],1,0);
     txBits1 = [0 1 0 0 0 1 0 0 1 1 0 0 1 1 0 1] ;
     txBits = mskmod([headBits txBits1 tailBits],samplesPerSymbol) ;
     
     dLen = 32;
     txref = randi([0 1],1,dLen) ; %[ 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1] ;
-    dataBits  = [ txref randi([0 1],1,144)];
+    dataBits  = [ txref ];
+    %dataBits  = [ txref randi([0 1],1,144)];
     txSymData = mskmod(dataBits,samplesPerSymbol);
     
     
-    txSym_t = [txBits zeros(1,L) txSymData] ;
+    txSym_t = [zeros(1,Lpre) txBits zeros(1,L) txSymData] ;
+    %txSym_t = [txBits] ;
     shift = 50 ;%randi(50) ; %% 1~50  %% ensure first point not drift too much 
     if flag_shift
         txSym = [zeros(1,shift*12) txSym_t];
@@ -124,8 +128,11 @@ for jj = 1:1 %1e6 % frame iteration
     %for tt=1:1
          find_loc_flag = 1 ;
          if find_loc_flag
-             location =  find_location(rxSig,txBits1,16);
-             lll = location(1)-1+L ;
+             %location =  find_location(rxSig,txBits1,16);
+             location =  signal_detect(rxSig(1:Lpre+L+16*12),192);
+             %location =  signal_detect(rxSig(1:1000),192);
+             break;
+             lll = location-1+L ;
          else
              lll = 3*12+L ;
          end    
